@@ -182,7 +182,7 @@ func generateHandlerFunction(
 						Lit("error"): Lit("Invalid Context"),
 						Lit("msg"):   Id("err" + argName).Dot("Error").Call(),
 					}),
-					Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusInternalServerError")),
+					Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusBadRequest")),
 					Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("response")),
 					Return(),
 				))
@@ -210,7 +210,7 @@ func generateHandlerFunction(
 					Lit("error"): Lit("Invalid JSON"),
 					Lit("msg"):   Id("err" + argName).Dot("Error").Call(),
 				}),
-				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusInternalServerError")),
+				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusBadRequest")),
 				Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("response")),
 				Return(),
 			)
@@ -246,7 +246,7 @@ func generateHandlerFunction(
 
 	if hasErr {
 		blocks = append(blocks, If(Id("err").Op("!=").Nil()).Block(
-			Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusInternalServerError")),
+			Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusBadRequest")),
 			Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(
 				Map(String()).Interface().Values(Dict{
 					Lit("error"): Lit("Bad Request"),
