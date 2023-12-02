@@ -3,10 +3,14 @@ package converter
 import (
 	"reflect"
 	"strings"
+
+	"github.com/onfirebyte/glutys/pkg/util"
 )
 
 type TSConverter struct {
 	CustomTypes map[string]string
+
+	createdTypes map[string]struct{}
 }
 
 func (c *TSConverter) ParseType(parent string, obj any) (string, string) {
@@ -31,9 +35,24 @@ func (c *TSConverter) ParseType(parent string, obj any) (string, string) {
 
 	childrenType := make([]reflect.Type, 0)
 
-	typeName := parent + t.Name()
+	typeName := ""
+	if parent != "" {
+		typeName = parent + t.Name()
+	} else {
+		typeName = packageNameFromPkgPath(t.PkgPath()) + t.Name()
+	}
 
-	res := "export type " + parent + t.Name() + " = {\n"
+	if c.createdTypes == nil {
+		c.createdTypes = make(map[string]struct{})
+	}
+
+	if _, ok := c.createdTypes[typeName]; ok {
+		return "", typeName + strings.Repeat("[]", sliceDepth)
+	}
+
+	c.createdTypes[typeName] = struct{}{}
+
+	res := "export type " + typeName + " = {\n"
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
@@ -89,7 +108,13 @@ func (c *TSConverter) TypeMap(parent string, typ reflect.Type) (string, *reflect
 	case reflect.Bool:
 		return "boolean", nil
 	case reflect.Struct:
-		return parent + typ.Name(), &typ
+		typeName := ""
+		if parent != "" {
+			typeName = parent + typ.Name()
+		} else {
+			typeName = packageNameFromPkgPath(typ.PkgPath()) + typ.Name()
+		}
+		return typeName, &typ
 	case reflect.Ptr:
 		res, t := c.TypeMap(parent, typ.Elem())
 		return res + " | null", t
@@ -103,4 +128,11 @@ func (c *TSConverter) TypeMap(parent string, typ reflect.Type) (string, *reflect
 
 func ConvertStruct(structName string) string {
 	return ""
+}
+
+func packageNameFromPkgPath(pkgPath string) string {
+	splitted := strings.Split(pkgPath, "/")
+	name := splitted[len(splitted)-1]
+
+	return util.CamelCaseToPublic(name)
 }

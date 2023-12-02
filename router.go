@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	. "github.com/dave/jennifer/jen"
+	"github.com/onfirebyte/glutys/pkg/util"
 )
 
 type Middleware func(next http.Handler) http.Handler
@@ -281,17 +282,10 @@ func PublicToCamelCase(s string) string {
 	return strings.ToLower(string(s[0])) + s[1:]
 }
 
-func CamelCaseToPublic(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-	return strings.ToUpper(string(s[0])) + s[1:]
-}
-
 func HandlerName(path string) string {
 	pathSlice := strings.Split(path, ".")
 	for i, p := range pathSlice {
-		pathSlice[i] = CamelCaseToPublic(p)
+		pathSlice[i] = util.CamelCaseToPublic(p)
 	}
 	return strings.Join(pathSlice, "") + "Handler"
 }
@@ -299,7 +293,7 @@ func HandlerName(path string) string {
 func NoDot(path string) string {
 	pathSlice := strings.Split(path, ".")
 	for i, p := range pathSlice {
-		pathSlice[i] = CamelCaseToPublic(p)
+		pathSlice[i] = util.CamelCaseToPublic(p)
 	}
 	return strings.Join(pathSlice, "")
 }
