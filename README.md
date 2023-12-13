@@ -232,8 +232,8 @@ console.log(await api.GetUUIDBase64("123e4567-e89b-12d3-a456-426655440000")); //
 
 ## Todo Feature
 
--   [] Route specific middleware
--   [] Axios client option
+-   [ ] Route specific middleware
+-   [ ] Axios client option
 
 ## Limitaion
 
