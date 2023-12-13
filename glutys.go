@@ -14,11 +14,19 @@ type Builder struct {
 	ContextParsers map[reflect.Type]any
 	ContextTypes   map[reflect.Type]struct{}
 	GeneratePath   string
-	Converter      converter.TSConverter
+	converter      converter.TSConverter
 
 	tsFile    string
 	tsMethods string
 	routes    map[string][]any
+}
+
+func (g *Builder) AddCustomType(t any, name string) {
+	if g.converter.CustomTypes == nil {
+		g.converter.CustomTypes = make(map[reflect.Type]string)
+	}
+
+	g.converter.CustomTypes[reflect.TypeOf(t)] = name
 }
 
 func (g *Builder) AddContextParser(f any) {

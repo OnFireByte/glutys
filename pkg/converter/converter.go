@@ -8,7 +8,7 @@ import (
 )
 
 type TSConverter struct {
-	CustomTypes map[string]string
+	CustomTypes map[reflect.Type]string
 
 	createdTypes map[string]struct{}
 }
@@ -84,7 +84,7 @@ func (c *TSConverter) ParseType(parent string, obj any) (string, string) {
 }
 
 func (c *TSConverter) TypeMap(parent string, typ reflect.Type) (string, *reflect.Type) {
-	if name, ok := c.CustomTypes[typ.Name()]; ok {
+	if name, ok := c.CustomTypes[typ]; ok {
 		return name, nil
 	}
 

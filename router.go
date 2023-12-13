@@ -37,7 +37,7 @@ func (g *Builder) buildRouter() string {
 				argTypes[i] = fnType.In(i)
 				_, exist := g.ContextTypes[argTypes[i]]
 				if !exist {
-					tsFile, tsType := g.Converter.ParseType(NoDot(path), reflect.New(argTypes[i]).Elem().Interface())
+					tsFile, tsType := g.converter.ParseType(NoDot(path), reflect.New(argTypes[i]).Elem().Interface())
 					g.tsFile += tsFile
 					argTSTypes = append(argTSTypes, tsType)
 				}
@@ -51,7 +51,7 @@ func (g *Builder) buildRouter() string {
 				returnTypes[i] = fnType.Out(i)
 			}
 
-			tsFile, tsType := g.Converter.ParseType("", reflect.New(returnTypes[0]).Elem().Interface())
+			tsFile, tsType := g.converter.ParseType("", reflect.New(returnTypes[0]).Elem().Interface())
 			g.tsFile += tsFile
 			retTSType = tsType
 
