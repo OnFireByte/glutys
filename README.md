@@ -39,12 +39,10 @@ import (
 )
 
 func main() {
+	fmt.Println("Generating routes...")
 
-	builder := glutys.Builder{
-		GeneratePath: "server/generated/routegen",
-	}
-
-    builder.AddContextParser(user.GetUserContext)
+	builder := glutys.NewBuilder("server/generated/routegen")
+	builder.AddContextParser(reqcontext.ParseUsername)
 
 	builder.CreateRouter(route.RootRoute)
 
@@ -63,6 +61,8 @@ func main() {
 	}
 
 	tsFile.WriteString(tsFileString)
+
+	fmt.Println("Done!")
 }
 ```
 
@@ -113,9 +113,8 @@ func Fib(n int) int {
 // cmd/glutys/main.go
 func main() {
 
-	builder := glutys.Builder{
-		GeneratePath: "server/generated/routegen",
-	}
+	builder := glutys.NewBuilder("server/generated/routegen")
+
 
 	builder.CreateRouter(map[string][]any{
 	    "math.fib":        {math.Fib},
@@ -130,7 +129,14 @@ now you can call it from client!
 import { CreateAPIClient } from "glutys-client";
 import { GlutysContract } from "./generated/contract";
 
-const api = CreateAPIClient<GlutysContract>("http://localhost:8080/api");
+const instance = axios.create({
+    baseURL: "http://localhost:8080/api",
+    headers: {
+        "user-token": "1234",
+    },
+});
+
+const api = CreateAPIClient<GlutysContract>(instance);
 
 console.log(api.math.fib(5));
 ```
@@ -160,7 +166,7 @@ type UserContext string
 
 func GetUserContext(r *http.Request) (UserContext, error) {
 	// get user token from header
-	userID := r.Header.Get("user token")
+	userID := r.Header.Get("user-token")
 	if userID == "" {
 		return "", fmt.Errorf("userToken header not found")
 	}
@@ -174,9 +180,7 @@ func GetUserContext(r *http.Request) (UserContext, error) {
 // cmd/glutys/main.go
 func main() {
 
-	builder := glutys.Builder{
-		GeneratePath: "server/generated/routegen",
-	}
+	builder := glutys.NewBuilder("server/generated/routegen")
 
     builder.AddContextParser(contextval.GetUserContext)
 
@@ -193,7 +197,7 @@ func SayHello(userToken contextval.UserContext, name string) string {
 ```
 
 ```ts
-api.sayHello("John"); // Hello John, your token is 0.
+api.sayHello("John"); // Hello John, your token is 1234.
 ```
 
 ## Adding custom type
@@ -233,7 +237,7 @@ console.log(await api.GetUUIDBase64("123e4567-e89b-12d3-a456-426655440000")); //
 ## Todo Feature
 
 -   [ ] Route specific middleware
--   [ ] Axios client option
+-   [x] Axios client option
 
 ## Limitaion
 
