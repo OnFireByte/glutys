@@ -2,6 +2,7 @@ package util
 
 import (
 	"reflect"
+	"runtime"
 	"strings"
 
 	"github.com/dave/jennifer/jen"
@@ -34,4 +35,10 @@ func GetJenType(t reflect.Type) *jen.Statement {
 		res = res.Qual(t.PkgPath(), t.Name())
 	}
 	return res
+}
+
+func GetFunctionName(i any) string {
+	fullName := runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+	nameSplit := strings.Split(fullName, "/")
+	return strings.TrimSpace(nameSplit[len(nameSplit)-1])
 }

@@ -11,25 +11,38 @@ import (
 type ContextParser = func(*http.Request) (any, error)
 
 type Builder struct {
-	ContextParsers map[reflect.Type]any
-	ContextTypes   map[reflect.Type]struct{}
-	GeneratePath   string
+	// Specifies the path to project root, default is "."
+	RootPath string
+
+	contextParsers map[reflect.Type]any
+	contextTypes   map[reflect.Type]struct{}
+	generatePath   string
 	converter      converter.TSConverter
 
-	tsFile    string
-	tsMethods string
-	routes    map[string][]any
+	tsFile       string
+	tsMethods    string
+	routes       map[string][]any
+	funcArgNames map[string][]string
 }
 
-func (g *Builder) AddCustomType(t any, name string) {
-	if g.converter.CustomTypes == nil {
-		g.converter.CustomTypes = make(map[reflect.Type]string)
+func NewBuilder(generatePath string) *Builder {
+	return &Builder{
+		RootPath:       ".",
+		generatePath:   generatePath,
+		converter:      converter.TSConverter{},
+		routes:         make(map[string][]any),
+		funcArgNames:   make(map[string][]string),
+		contextParsers: make(map[reflect.Type]any),
+		contextTypes:   make(map[reflect.Type]struct{}),
 	}
-
-	g.converter.CustomTypes[reflect.TypeOf(t)] = name
 }
 
-func (g *Builder) AddContextParser(f any) {
+func (g *Builder) AddCustomType(t any, name string) *Builder {
+	g.converter.CustomTypes[reflect.TypeOf(t)] = name
+	return g
+}
+
+func (g *Builder) AddContextParser(f any) *Builder {
 	// f must be a function
 	if reflect.TypeOf(f).Kind() != reflect.Func {
 		panic("Context parser must be a function")
@@ -55,25 +68,23 @@ func (g *Builder) AddContextParser(f any) {
 		}
 	}
 
-	if g.ContextParsers == nil {
-		g.ContextParsers = make(map[reflect.Type]any)
-	}
-	if g.ContextTypes == nil {
-		g.ContextTypes = make(map[reflect.Type]struct{})
-	}
-
 	retType := fnType.Out(0)
 
-	g.ContextParsers[retType] = f
-	g.ContextTypes[retType] = struct{}{}
-
+	g.contextParsers[retType] = f
+	g.contextTypes[retType] = struct{}{}
+	return g
 }
 
-func (g *Builder) CreateRouter(routes map[string][]any) {
+func (g *Builder) CreateRouter(routes map[string][]any) *Builder {
 	g.routes = routes
+	return g
 }
 
 func (g *Builder) Build() (string, string) {
+	fmt.Println("Scanning project...")
+	g.scanRPC()
+
+	fmt.Println("Generating router...")
 	goFile := g.buildRouter()
 
 	g.tsFile += fmt.Sprintf("export type GlutysContract = {\n%s}\n", g.tsMethods)
