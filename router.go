@@ -37,7 +37,8 @@ func (g *Builder) buildRouter() string {
 				argTypes[i] = fnType.In(i)
 				_, exist := g.ContextTypes[argTypes[i]]
 				if !exist {
-					tsFile, tsType := g.converter.ParseType(NoDot(path), reflect.New(argTypes[i]).Elem().Interface())
+					tsFile, tsType := g.converter.ParseType(NoDot(path), argTypes[i])
+
 					g.tsFile += tsFile
 					argTSTypes = append(argTSTypes, tsType)
 				}
@@ -51,7 +52,7 @@ func (g *Builder) buildRouter() string {
 				returnTypes[i] = fnType.Out(i)
 			}
 
-			tsFile, tsType := g.converter.ParseType("", reflect.New(returnTypes[0]).Elem().Interface())
+			tsFile, tsType := g.converter.ParseType("", returnTypes[0])
 			g.tsFile += tsFile
 			retTSType = tsType
 
@@ -149,9 +150,9 @@ func generateHandlerFunction(
 	argPos := 0
 	argVars := []string{}
 	for i, argType := range argTypes {
-		_, exist := g.ContextTypes[argType]
+		_, isContext := g.ContextTypes[argType]
 
-		if exist {
+		if isContext {
 
 			contextParser := g.ContextParsers[argType]
 			contextParserValue := reflect.ValueOf(contextParser)
@@ -190,16 +191,23 @@ func generateHandlerFunction(
 			}
 
 		} else {
+			// get underline type of argType if it's pointer or slice
+			realArgType := argType
+
+			for {
+				if argType.Kind() == reflect.Ptr {
+					argType = argType.Elem()
+				} else if argType.Kind() == reflect.Slice {
+					argType = argType.Elem()
+				} else {
+					break
+				}
+			}
 
 			argName := PublicToCamelCase(argType.Name()) + strconv.Itoa(i)
 			argVars = append(argVars, argName)
 
-			var varDeclare *Statement
-			if argType.PkgPath() == "" {
-				varDeclare = Var().Id(argName).Add(Id(argType.Name()))
-			} else {
-				varDeclare = Var().Id(argName).Add(Qual(argType.PkgPath(), argType.Name()))
-			}
+			varDeclare := Var().Id(argName).Add(util.GetJenType(realArgType))
 
 			marshaled := Id("err"+argName).Op(":=").Qual("encoding/json", "Unmarshal").Call(
 				Id("body").Dot("Args").Index(Lit(argPos)),

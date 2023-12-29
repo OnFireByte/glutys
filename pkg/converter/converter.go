@@ -1,10 +1,19 @@
 package converter
 
 import (
+	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/onfirebyte/glutys/pkg/util"
+)
+
+type nestType string
+
+const (
+	pointer nestType = "pointer"
+	slice   nestType = "slice"
 )
 
 type TSConverter struct {
@@ -13,23 +22,34 @@ type TSConverter struct {
 	createdTypes map[string]struct{}
 }
 
-func (c *TSConverter) ParseType(parent string, obj any) (string, string) {
-	// read tags
-	// read fields
-
-	v := reflect.ValueOf(obj)
-	t := v.Type()
-
+func (c *TSConverter) ParseType(parent string, t reflect.Type) (string, string) {
 	// if slice, parse slice element
-	sliceDepth := 0
-	for t.Kind() == reflect.Slice {
-		sliceDepth++
-		t = t.Elem()
+	nestedDepth := []nestType{}
+	for {
+		if t.Kind() == reflect.Ptr {
+			t = t.Elem()
+			nestedDepth = append(nestedDepth, pointer)
+		} else if t.Kind() == reflect.Slice {
+			t = t.Elem()
+			nestedDepth = append(nestedDepth, slice)
+		} else {
+			break
+		}
 	}
+	slices.Reverse(nestedDepth)
 
 	// if not struct, return empty string
 	if t.Kind() != reflect.Struct {
 		tsType, _ := c.TypeMap("", t)
+
+		for _, nest := range nestedDepth {
+			switch nest {
+			case pointer:
+				tsType = fmt.Sprintf("(%s | null)", tsType)
+			case slice:
+				tsType = fmt.Sprintf("%s[]", tsType)
+			}
+		}
 		return "", tsType
 	}
 
@@ -46,8 +66,19 @@ func (c *TSConverter) ParseType(parent string, obj any) (string, string) {
 		c.createdTypes = make(map[string]struct{})
 	}
 
+	typeRes := typeName
+
+	for _, nest := range nestedDepth {
+		switch nest {
+		case pointer:
+			typeRes = fmt.Sprintf("(%s | null)", typeRes)
+		case slice:
+			typeRes = fmt.Sprintf("%s[]", typeRes)
+		}
+	}
+
 	if _, ok := c.createdTypes[typeName]; ok {
-		return "", typeName + strings.Repeat("[]", sliceDepth)
+		return "", typeRes
 	}
 
 	c.createdTypes[typeName] = struct{}{}
@@ -76,11 +107,15 @@ func (c *TSConverter) ParseType(parent string, obj any) (string, string) {
 	res += "}\n\n"
 
 	for _, child := range childrenType {
-		r, _ := c.ParseType(typeName, reflect.New(child).Elem().Interface())
+		fmt.Println("child type", child.Kind(), t)
+		if child.Kind() == reflect.Struct {
+			continue
+		}
+		r, _ := c.ParseType(typeName, child)
 		res += r
 	}
 
-	return res, typeName + strings.Repeat("[]", sliceDepth)
+	return res, typeRes
 }
 
 func (c *TSConverter) TypeMap(parent string, typ reflect.Type) (string, *reflect.Type) {
