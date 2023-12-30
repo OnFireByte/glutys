@@ -113,7 +113,11 @@ func Fib(n int) int {
 ```go
 // cmd/glutys/main.go
 func main() {
-    builder := glutys.NewBuilder("server/generated/routegen")
+    builder := glutys.NewBuilder(
+        "github.come/user/example/generated/routegen",
+        "generated/routegen/route.go",
+        "../client/generated/contract.ts",
+    )
 
     ...
 
@@ -123,7 +127,7 @@ func main() {
 
     ...
 
-    goFileString, tsFileString := builder.Build()
+    builder.Build()
 }
 ```
 
@@ -190,9 +194,6 @@ func main() {
 
     ...
 
-    goFileString, tsFileString := builder.Build()
-
-    ...
 }
 ```
 
@@ -251,7 +252,6 @@ func main() {
 
     ...
 
-    goFileString, tsFileString := builder.Build()
 }
 ```
 
@@ -262,7 +262,7 @@ func main() {
 func main() {
     // the order of dependencies depends on the order of AddDependencyType calls
     handler := routegen.NewHandler(
-    cache.NewCacheImpl(),
+        cache.NewCacheImpl(),
     )
     http.HandleFunc("/api", handler.Handle)
 
@@ -303,7 +303,6 @@ func main() {
 
     ...
 
-    goFileString, tsFileString := builder.Build()
 }
 ```
 

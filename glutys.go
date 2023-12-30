@@ -3,6 +3,7 @@ package glutys
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
 
 	"github.com/onfirebyte/glutys/pkg/converter"
@@ -24,25 +25,39 @@ type Builder struct {
 	// used preserve order of dependency types
 	diTypes []reflect.Type
 
-	generatePath string
-	converter    converter.TSConverter
+	packagePath string
+	converter   converter.TSConverter
 
 	tsFile       string
 	tsMethods    string
 	routes       map[string][]any
 	funcArgNames map[string][]string
+
+	tsFilePath string
+	goFilePath string
 }
 
-func NewBuilder(generatePath string) *Builder {
+// NewBuilder creates a new instance of the Builder struct.
+//
+//   - pagePath is the go package path of the generated file.
+//
+//   - goFilePath is the relative path to the generated go file.
+//
+//   - tsFilePath is the relative path to the generated typescript file.
+//
+// The RootPath is set to ".", you can change it by setting the RootPath field.
+func NewBuilder(packagePath string, goFilePath string, tsFilePath string) *Builder {
 	return &Builder{
 		RootPath:       ".",
-		generatePath:   generatePath,
+		packagePath:    packagePath,
 		converter:      converter.TSConverter{},
 		routes:         make(map[string][]any),
 		funcArgNames:   make(map[string][]string),
 		contextParsers: make(map[reflect.Type]any),
 		contextTypes:   make(map[reflect.Type]struct{}),
 		diTypeMap:      make(map[reflect.Type]struct{}),
+		goFilePath:     goFilePath,
+		tsFilePath:     tsFilePath,
 	}
 }
 
@@ -96,7 +111,7 @@ func (g *Builder) CreateRouter(routes map[string][]any) *Builder {
 	return g
 }
 
-func (g *Builder) Build() (string, string) {
+func (g *Builder) Build() {
 	fmt.Println("Scanning project...")
 	g.scanRPC()
 
@@ -105,5 +120,18 @@ func (g *Builder) Build() (string, string) {
 
 	g.tsFile += fmt.Sprintf("export type GlutysContract = {\n%s}\n", g.tsMethods)
 
-	return goFile, g.tsFile
+	file, err := os.Create(g.goFilePath)
+	if err != nil {
+		panic(err)
+	}
+
+	file.WriteString(goFile)
+
+	tsFile, err := os.Create(g.tsFilePath)
+	if err != nil {
+		panic(err)
+	}
+
+	tsFile.WriteString(g.tsFile)
+	fmt.Println("Done!")
 }
