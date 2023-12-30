@@ -32,37 +32,37 @@ I also recommend the monorepo structure since it's easier to manage the generate
 package main
 
 import (
-	"os"
-	"server/route"
+    "os"
+    "server/route"
 
-	"github.com/onfirebyte/glutys"
+    "github.com/onfirebyte/glutys"
 )
 
 func main() {
-	fmt.Println("Generating routes...")
+    fmt.Println("Generating routes...")
 
-	builder := glutys.NewBuilder("server/generated/routegen")
-	builder.AddContextParser(reqcontext.ParseUsername)
+    builder := glutys.NewBuilder("server/generated/routegen")
+    builder.AddContextParser(reqcontext.ParseUsername)
 
-	builder.CreateRouter(route.RootRoute)
+    builder.CreateRouter(route.RootRoute)
 
-	goFileString, tsFileString := builder.Build()
+    goFileString, tsFileString := builder.Build()
 
-	file, err := os.Create("generated/routegen/route.go")
-	if err != nil {
-		panic(err)
-	}
+    file, err := os.Create("generated/routegen/route.go")
+    if err != nil {
+    panic(err)
+    }
 
-	file.WriteString(goFileString)
+    file.WriteString(goFileString)
 
-	tsFile, err := os.Create("../client/generated/contract.ts")
-	if err != nil {
-		panic(err)
-	}
+    tsFile, err := os.Create("../client/generated/contract.ts")
+    if err != nil {
+    panic(err)
+    }
 
-	tsFile.WriteString(tsFileString)
+    tsFile.WriteString(tsFileString)
 
-	fmt.Println("Done!")
+    fmt.Println("Done!")
 }
 ```
 
@@ -71,17 +71,17 @@ func main() {
 package main
 
 import (
-	"fmt"
-	"net/http"
-	"server/generated/routegen"
+    "fmt"
+    "net/http"
+    "server/generated/routegen"
 )
 
 func main() {
-	handler := routegen.NewHandler()
-	http.HandleFunc("/api", handler.Handle)
+    handler := routegen.NewHandler()
+    http.HandleFunc("/api", handler.Handle)
 
-	fmt.Println("Listening on port 8080")
-	http.ListenAndServe(":8080", nil)
+    fmt.Println("Listening on port 8080")
+    http.ListenAndServe(":8080", nil)
 }
 ```
 
@@ -94,17 +94,17 @@ func main() {
 package math
 
 func Fib(n int) int {
-	if n <= 1 {
-		return n
-	}
+   if n <= 1 {
+   return n
+   }
 
-	a := 0
-	b := 1
-	for i := 2; i <= n; i++ {
-		a, b = b, a+b
-	}
+   a := 0
+   b := 1
+   for i := 2; i <= n; i++ {
+   a, b = b, a+b
+   }
 
-	return b
+   return b
 }
 ```
 
@@ -113,17 +113,17 @@ func Fib(n int) int {
 ```go
 // cmd/glutys/main.go
 func main() {
-	builder := glutys.NewBuilder("server/generated/routegen")
+    builder := glutys.NewBuilder("server/generated/routegen")
 
-	...
+    ...
 
     builder.CreateRouter(map[string][]any{
-	    "math.fib":        {math.Fib},
+    "math.fib":        {math.Fib},
     })
 
     ...
 
-	goFileString, tsFileString := builder.Build()
+    goFileString, tsFileString := builder.Build()
 }
 ```
 
@@ -160,8 +160,8 @@ Note:
 package contextval
 
 import (
-	"fmt"
-	"net/http"
+    "fmt"
+    "net/http"
 )
 
 // uniquee type for context is required since
@@ -169,12 +169,12 @@ import (
 type UserContext string
 
 func GetUserContext(r *http.Request) (UserContext, error) {
-	// get user token from header
-	userID := r.Header.Get("user-token")
-	if userID == "" {
-		return "", fmt.Errorf("userToken header not found")
-	}
-	return UserContext(userID), nil
+    // get user token from header
+    userID := r.Header.Get("user-token")
+    if userID == "" {
+    return "", fmt.Errorf("userToken header not found")
+    }
+    return UserContext(userID), nil
 }
 ```
 
@@ -184,14 +184,15 @@ func GetUserContext(r *http.Request) (UserContext, error) {
 // cmd/glutys/main.go
 func main() {
 
-	...
+    ...
 
     builder.AddContextParser(contextval.GetUserContext)
 
     ...
 
-	goFileString, tsFileString := builder.Build()
+    goFileString, tsFileString := builder.Build()
 
+    ...
 }
 ```
 
@@ -199,7 +200,7 @@ func main() {
 
 ```go
 func SayHello(userToken contextval.UserContext, name string) string {
-	return fmt.Sprintf("Hello %v!, your token is %v", name, userToken)
+    return fmt.Sprintf("Hello %v!, your token is %v", name, userToken)
 }
 ```
 
@@ -215,25 +216,25 @@ For example, we have dependency `cache.Cache`.
 
 ```go
 type Cache interface {
-	Get(key string) (string, bool)
-	Set(key string, value string)
+    Get(key string) (string, bool)
+    Set(key string, value string)
 }
 
 type CacheImpl struct {
-	cache map[string]string
+    cache map[string]string
 }
 
 func NewCacheImpl() *CacheImpl {
-	return &CacheImpl{cache: map[string]string{}}
+    return &CacheImpl{cache: map[string]string{}}
 }
 
 func (c *CacheImpl) Get(key string) (string, bool) {
-	v, ok := c.cache[key]
-	return v, ok
+    v, ok := c.cache[key]
+    return v, ok
 }
 
 func (c *CacheImpl) Set(key string, value string) {
-	c.cache[key] = value
+    c.cache[key] = value
 }
 ```
 
@@ -243,28 +244,29 @@ func (c *CacheImpl) Set(key string, value string) {
 // cmd/glutys/main.go
 func main() {
 
-	...
+    ...
 
-	// You must use pointer to type, not the type itself
-	builder.AddDependencyType((*cache.Cache)(nil))
+    // You must use pointer to type, not the type itself
+    builder.AddDependencyType((*cache.Cache)(nil))
 
     ...
 
-	goFileString, tsFileString := builder.Build()
+    goFileString, tsFileString := builder.Build()
 }
 ```
 
 2. Generate the code. Then add the dependency in `NewHanlder` function.
 
 ```go
+// cmd/main/main.go
 func main() {
-	// the order of dependencies depends on the order of AddDependencyType calls
-	handler := routegen.NewHandler(
-		cache.NewCacheImpl(),
-	)
-	http.HandleFunc("/api", handler.Handle)
+    // the order of dependencies depends on the order of AddDependencyType calls
+    handler := routegen.NewHandler(
+    cache.NewCacheImpl(),
+    )
+    http.HandleFunc("/api", handler.Handle)
 
-	...
+    ...
 }
 ```
 
@@ -293,7 +295,7 @@ For example, if you want to use UUID from `github.com/google/uuid`
 ```go
 // cmd/glutys/main.go
 func main() {
-	...
+    ...
 
     // uuid.UUID already have marshall method that convert to string.
     // arg: value of that type, matched TS type
@@ -301,14 +303,14 @@ func main() {
 
     ...
 
-	goFileString, tsFileString := builder.Build()
+    goFileString, tsFileString := builder.Build()
 }
 ```
 
 ```go
 // RPC function
 func GetUUIDBase64(id uuid.UUID) string {
-	return base64.StdEncoding.EncodeToString(id[:])
+    return base64.StdEncoding.EncodeToString(id[:])
 }
 ```
 
