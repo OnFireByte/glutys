@@ -77,7 +77,8 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/api", routegen.RouteHandler)
+	handler := routegen.NewHandler()
+	http.HandleFunc("/api", handler.Handle)
 
 	fmt.Println("Listening on port 8080")
 	http.ListenAndServe(":8080", nil)
@@ -112,14 +113,17 @@ func Fib(n int) int {
 ```go
 // cmd/glutys/main.go
 func main() {
-
 	builder := glutys.NewBuilder("server/generated/routegen")
 
+	...
 
-	builder.CreateRouter(map[string][]any{
+    builder.CreateRouter(map[string][]any{
 	    "math.fib":        {math.Fib},
     })
+
     ...
+
+	goFileString, tsFileString := builder.Build()
 }
 ```
 
@@ -146,7 +150,7 @@ Note:
 1. Glutys also support multiple argument, struct as argument and return data.
 2. RPC function in go can return error as second value, the response will be 400 with json message if the error is not nil.
 
-## Create context parser
+## Creating context parser
 
 "context" in this context (no pun intended) is the data that you need to process in RPC function that doesn't come as argument, for example, the user token that attached with request header, you can ceate function that parsing these data and pass it into RPC function
 
@@ -174,17 +178,20 @@ func GetUserContext(r *http.Request) (UserContext, error) {
 }
 ```
 
-2. add the parsing function to generate script
+2. Add the parsing function to generate script
 
 ```go
 // cmd/glutys/main.go
 func main() {
 
-	builder := glutys.NewBuilder("server/generated/routegen")
+	...
 
     builder.AddContextParser(contextval.GetUserContext)
 
     ...
+
+	goFileString, tsFileString := builder.Build()
+
 }
 ```
 
@@ -200,6 +207,83 @@ func SayHello(userToken contextval.UserContext, name string) string {
 api.sayHello("John"); // Hello John, your token is 1234.
 ```
 
+## Adding dependencies
+
+Similar to context, if you want to do dependencies injection, you can pass the dependencies as argument. The dependency can be both real type or interface.
+
+For example, we have dependency `cache.Cache`.
+
+```go
+type Cache interface {
+	Get(key string) (string, bool)
+	Set(key string, value string)
+}
+
+type CacheImpl struct {
+	cache map[string]string
+}
+
+func NewCacheImpl() *CacheImpl {
+	return &CacheImpl{cache: map[string]string{}}
+}
+
+func (c *CacheImpl) Get(key string) (string, bool) {
+	v, ok := c.cache[key]
+	return v, ok
+}
+
+func (c *CacheImpl) Set(key string, value string) {
+	c.cache[key] = value
+}
+```
+
+1. Add the dependency type to building script
+
+```go
+// cmd/glutys/main.go
+func main() {
+
+	...
+
+	// You must use pointer to type, not the type itself
+	builder.AddDependencyType((*cache.Cache)(nil))
+
+    ...
+
+	goFileString, tsFileString := builder.Build()
+}
+```
+
+2. Generate the code. Then add the dependency in `NewHanlder` function.
+
+```go
+func main() {
+	// the order of dependencies depends on the order of AddDependencyType calls
+	handler := routegen.NewHandler(
+		cache.NewCacheImpl(),
+	)
+	http.HandleFunc("/api", handler.Handle)
+
+	...
+}
+```
+
+3. Now you can use it in RPC function
+
+```go
+func Fib(cache cache.Cache, n int) (int, error) {
+	if raw, ok := cache.Get(strconv.Itoa(n)); ok {
+		return strconv.Atoi(raw)
+	}
+
+	...
+
+	cache.Set(strconv.Itoa(n), strconv.Itoa(result))
+
+	return result, nil
+}
+```
+
 ## Adding custom type
 
 When you add a type that doesn't supported by JSON specification, you can use `builder.AddCustomType` to tell glutys to map the custom type to proper TS type. Note that you have marshalling process that correctly convert it to match the TS type that you specified
@@ -209,16 +293,15 @@ For example, if you want to use UUID from `github.com/google/uuid`
 ```go
 // cmd/glutys/main.go
 func main() {
-
-	builder := glutys.Builder{
-		GeneratePath: "server/generated/routegen",
-	}
+	...
 
     // uuid.UUID already have marshall method that convert to string.
     // arg: value of that type, matched TS type
     builder.AddCustomType(uuid.UUID{}, "string")
 
     ...
+
+	goFileString, tsFileString := builder.Build()
 }
 ```
 
