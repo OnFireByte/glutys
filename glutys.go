@@ -14,10 +14,18 @@ type Builder struct {
 	// Specifies the path to project root, default is "."
 	RootPath string
 
+	// used to store and finding context parser function
 	contextParsers map[reflect.Type]any
-	contextTypes   map[reflect.Type]struct{}
-	generatePath   string
-	converter      converter.TSConverter
+	// used to store and finding context types
+	contextTypes map[reflect.Type]struct{}
+
+	// used to finding dependency types
+	diTypeMap map[reflect.Type]struct{}
+	// used preserve order of dependency types
+	diTypes []reflect.Type
+
+	generatePath string
+	converter    converter.TSConverter
 
 	tsFile       string
 	tsMethods    string
@@ -34,6 +42,7 @@ func NewBuilder(generatePath string) *Builder {
 		funcArgNames:   make(map[string][]string),
 		contextParsers: make(map[reflect.Type]any),
 		contextTypes:   make(map[reflect.Type]struct{}),
+		diTypeMap:      make(map[reflect.Type]struct{}),
 	}
 }
 
@@ -75,6 +84,13 @@ func (g *Builder) AddContextParser(f any) *Builder {
 	return g
 }
 
+func (g *Builder) AddDependencyType(t any) *Builder {
+	rt := reflect.TypeOf(t).Elem()
+	g.diTypeMap[rt] = struct{}{}
+	g.diTypes = append(g.diTypes, rt)
+	return g
+}
+
 func (g *Builder) CreateRouter(routes map[string][]any) *Builder {
 	g.routes = routes
 	return g
@@ -85,7 +101,7 @@ func (g *Builder) Build() (string, string) {
 	g.scanRPC()
 
 	fmt.Println("Generating router...")
-	goFile := g.buildRouter()
+	goFile := g.buildHandler()
 
 	g.tsFile += fmt.Sprintf("export type GlutysContract = {\n%s}\n", g.tsMethods)
 

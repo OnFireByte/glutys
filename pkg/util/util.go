@@ -15,6 +15,13 @@ func CamelCaseToPublic(s string) string {
 	return strings.ToUpper(string(s[0])) + s[1:]
 }
 
+func PublicToCamelCase(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	return strings.ToLower(string(s[0])) + s[1:]
+}
+
 func GetJenType(t reflect.Type) *jen.Statement {
 	res := jen.Op("")
 	for {
