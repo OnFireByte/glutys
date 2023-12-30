@@ -39,30 +39,16 @@ import (
 )
 
 func main() {
-    fmt.Println("Generating routes...")
-
-    builder := glutys.NewBuilder("server/generated/routegen")
+    builder := glutys.NewBuilder(
+        "github.come/user/example/generated/routegen",
+        "generated/routegen/route.go",
+        "../client/generated/contract.ts",
+    )
     builder.AddContextParser(reqcontext.ParseUsername)
 
     builder.CreateRouter(route.RootRoute)
 
-    goFileString, tsFileString := builder.Build()
-
-    file, err := os.Create("generated/routegen/route.go")
-    if err != nil {
-    panic(err)
-    }
-
-    file.WriteString(goFileString)
-
-    tsFile, err := os.Create("../client/generated/contract.ts")
-    if err != nil {
-    panic(err)
-    }
-
-    tsFile.WriteString(tsFileString)
-
-    fmt.Println("Done!")
+    builder.Build()
 }
 ```
 
@@ -176,7 +162,7 @@ func GetUserContext(r *http.Request) (UserContext, error) {
     // get user token from header
     userID := r.Header.Get("user-token")
     if userID == "" {
-    return "", fmt.Errorf("userToken header not found")
+        return "", fmt.Errorf("userToken header not found")
     }
     return UserContext(userID), nil
 }
