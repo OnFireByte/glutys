@@ -154,9 +154,21 @@ func generateHandlerStruct(
 	declareValues := []Code{}
 
 	for _, diType := range g.diTypes {
-		structFields = append(structFields, Id(diType.Name()).Add(Qual(diType.PkgPath(), diType.Name())))
+		pointerCount := 0
 
-		newFuncParams = append(newFuncParams, Id(util.PublicToCamelCase(diType.Name())).Add(Qual(diType.PkgPath(), diType.Name())))
+		for diType.Kind() == reflect.Ptr {
+			pointerCount++
+			diType = diType.Elem()
+		}
+
+		qual := Qual(diType.PkgPath(), diType.Name())
+		for i := 0; i < pointerCount; i++ {
+			qual = Op("*").Add(qual)
+		}
+
+		structFields = append(structFields, Id(diType.Name()).Add(qual))
+
+		newFuncParams = append(newFuncParams, Id(util.PublicToCamelCase(diType.Name())).Add(qual))
 
 		declareValues = append(declareValues, Id(diType.Name()).Op(":").Id(util.PublicToCamelCase(diType.Name())))
 	}
@@ -181,6 +193,8 @@ func generateHandlerFunction(
 	argPos := 0
 	argVars := []string{}
 	for i, argType := range argTypes {
+
+		// Handle context
 		if _, isContext := g.contextTypes[argType]; isContext {
 
 			contextParser := g.contextParsers[argType]
@@ -219,46 +233,62 @@ func generateHandlerFunction(
 				))
 			}
 
-		} else if _, isDependency := g.diTypeMap[argType]; isDependency {
-			argVars = append(argVars, fmt.Sprintf("h.%s", argType.Name()))
-		} else {
-			// get underline type of argType if it's pointer or slice
-			realArgType := argType
-
-			for {
-				if argType.Kind() == reflect.Ptr {
-					argType = argType.Elem()
-				} else if argType.Kind() == reflect.Slice {
-					argType = argType.Elem()
-				} else {
-					break
-				}
-			}
-
-			argName := util.PublicToCamelCase(argType.Name()) + strconv.Itoa(i)
-			argVars = append(argVars, argName)
-
-			varDeclare := Var().Id(argName).Add(util.GetJenType(realArgType))
-
-			marshaled := Id("err"+argName).Op(":=").Qual("encoding/json", "Unmarshal").Call(
-				Id("body").Dot("Args").Index(Lit(argPos)),
-				Op("&").Id(argName),
-			)
-
-			ifErr := If(Id("err"+argName).Op("!=").Id("nil")).Block(
-				Id("response").Op(":=").Map(String()).Interface().Values(Dict{
-					Lit("error"): Lit("Invalid JSON"),
-					Lit("msg"):   Id("err" + argName).Dot("Error").Call(),
-				}),
-				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusBadRequest")),
-				Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("response")),
-				Return(),
-			)
-
-			blocks = append(blocks, varDeclare, marshaled, ifErr)
-			argPos++
-
+			continue
 		}
+
+		realArgType := argType
+		pCount := 0
+		for {
+			if _, isDependency := g.diTypeMap[realArgType]; isDependency {
+				break
+			} else if realArgType.Kind() == reflect.Ptr {
+				realArgType = realArgType.Elem()
+				pCount++
+			} else if realArgType.Kind() == reflect.Slice {
+				realArgType = realArgType.Elem()
+			} else {
+				break
+			}
+		}
+
+		// Handle dependency injection
+		if _, isDependency := g.diTypeMap[realArgType]; isDependency {
+			for realArgType.Kind() == reflect.Ptr {
+				realArgType = realArgType.Elem()
+			}
+			argVars = append(argVars, fmt.Sprintf("%sh.%s", strings.Repeat("&", pCount), realArgType.Name()))
+			continue
+		}
+
+		// Handle normal argument
+
+		if realArgType.Kind() == reflect.Interface {
+			panic(fmt.Sprintf("Try to use interface %s as argument for RPC. Check the build script again if it's suppose to be dependency.", argType.Name()))
+		}
+
+		argName := util.PublicToCamelCase(realArgType.Name()) + strconv.Itoa(i)
+		argVars = append(argVars, argName)
+
+		varDeclare := Var().Id(argName).Add(util.GetJenType(argType))
+
+		marshaled := Id("err"+argName).Op(":=").Qual("encoding/json", "Unmarshal").Call(
+			Id("body").Dot("Args").Index(Lit(argPos)),
+			Op("&").Id(argName),
+		)
+
+		ifErr := If(Id("err"+argName).Op("!=").Id("nil")).Block(
+			Id("response").Op(":=").Map(String()).Interface().Values(Dict{
+				Lit("error"): Lit("Invalid JSON"),
+				Lit("msg"):   Id("err" + argName).Dot("Error").Call(),
+			}),
+			Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusBadRequest")),
+			Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("response")),
+			Return(),
+		)
+
+		blocks = append(blocks, varDeclare, marshaled, ifErr)
+		argPos++
+
 	}
 
 	callIdentifiers := []Code{
