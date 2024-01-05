@@ -23,6 +23,7 @@ func (g *Builder) buildHandler() string {
 
 	paths := []string{}
 
+	generateInitFunc(f, g)
 	generateHandlerStruct(f, g)
 
 	for path, procedures := range routes {
@@ -129,20 +130,35 @@ func (g *Builder) buildHandler() string {
 		Id("w").Dot("Header").Call().Dot("Set").Call(Lit("Content-Type"), Lit("application/json")),
 		// parse body
 		Id("body").Op(":=").Qual("github.com/onfirebyte/glutys", "RequestBody").Values(),
-		Id("err").Op(":=").Qual("encoding/json", "NewDecoder").Call(Id("r").Dot("Body")).Dot("Decode").Call(Op("&").Id("body")),
+		Id("err").Op(":=").Id("json").Dot("NewDecoder").Call(Id("r").Dot("Body")).Dot("Decode").Call(Op("&").Id("body")),
 		If(Id("err").Op("!=").Nil()).Block(
 			Id("response").Op(":=").Map(String()).Interface().Values(Dict{
 				Lit("error"): Lit("Bad Request"),
 				Lit("msg"):   Lit("Invalid JSON"),
 			}),
 			Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusBadRequest")),
-			Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("response")),
+			Id("json").Dot("NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("response")),
 		),
 
 		Switch(Id("body").Dot("Method")).Block(handlerCases...),
 	)
 
 	return f.GoString()
+}
+
+func generateInitFunc(
+	f *File,
+	g *Builder,
+) {
+	f.Var().Id("json").Qual("github.com/onfirebyte/jsoniter", "API")
+	f.Func().Id("init").Params().Block(
+		Id("json").Op("=").Qual("github.com/onfirebyte/jsoniter", "Config").Block(
+			Id("EscapeHTML").Op(":").True().Op(","),
+			Id("SortMapKeys").Op(":").True().Op(","),
+			Id("ValidateJsonRawMessage").Op(":").True().Op(","),
+			Id("EmptyCollections").Op(":").True().Op(","),
+		).Dot("Froze").Call(),
+	)
 }
 
 func generateHandlerStruct(
@@ -228,7 +244,7 @@ func generateHandlerFunction(
 						Lit("msg"):   Id("err" + argName).Dot("Error").Call(),
 					}),
 					Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusBadRequest")),
-					Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("response")),
+					Id("json").Dot("NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("response")),
 					Return(),
 				))
 			}
@@ -271,7 +287,7 @@ func generateHandlerFunction(
 
 		varDeclare := Var().Id(argName).Add(util.GetJenType(argType))
 
-		marshaled := Id("err"+argName).Op(":=").Qual("encoding/json", "Unmarshal").Call(
+		marshaled := Id("err"+argName).Op(":=").Id("json").Dot("Unmarshal").Call(
 			Id("body").Dot("Args").Index(Lit(argPos)),
 			Op("&").Id(argName),
 		)
@@ -282,7 +298,7 @@ func generateHandlerFunction(
 				Lit("msg"):   Id("err" + argName).Dot("Error").Call(),
 			}),
 			Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusBadRequest")),
-			Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("response")),
+			Id("json").Dot("NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("response")),
 			Return(),
 		)
 
@@ -317,7 +333,7 @@ func generateHandlerFunction(
 	if hasErr {
 		blocks = append(blocks, If(Id("err").Op("!=").Nil()).Block(
 			Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusBadRequest")),
-			Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(
+			Id("json").Dot("NewEncoder").Call(Id("w")).Dot("Encode").Call(
 				Map(String()).Interface().Values(Dict{
 					Lit("error"): Lit("Bad Request"),
 					Lit("msg"):   Id("err").Dot("Error").Call(),
@@ -329,7 +345,7 @@ func generateHandlerFunction(
 
 	blocks = append(blocks,
 		Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusOK")),
-		Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(
+		Id("json").Dot("NewEncoder").Call(Id("w")).Dot("Encode").Call(
 			Id("res")),
 		Return())
 
